@@ -233,13 +233,21 @@ elif model_type == "Multi-Layer Neural Network (Backpropagation)":
             random_state=seed
         )
 
-        history = nn.train(X_train_std, y_train, epochs=epochs)
+        history = nn.train(X_train_std, 
+                           y_train,X_test=X_test_std,
+                           y_test=y_test,epochs=epochs)
 
         # Save model
         st.session_state["mlp_model"] = nn
         st.session_state["mu"] = mu
         st.session_state["sigma"] = sigma
 
+        # ---- Compute Train & Test Accuracy ----
+        train_pred = nn.predict(X_train_std)
+        test_pred  = nn.predict(X_test_std)
+        train_acc = np.mean(train_pred == y_train) * 100
+        test_acc = np.mean(test_pred == y_test) * 100
+        
         # Plot Loss
         st.subheader(" Loss Curve")
         fig1, ax1 = plt.subplots()
@@ -248,22 +256,34 @@ elif model_type == "Multi-Layer Neural Network (Backpropagation)":
         ax1.set_ylabel("Loss")
         st.pyplot(fig1)
 
-        # Accuracy
-        st.subheader(" Accuracy Curve")
+        # Train Accuracy Curve
+        st.subheader(" Train Accuracy Curve")
         fig2, ax2 = plt.subplots()
         ax2.plot(history["train_acc"])
         ax2.set_xlabel("Epoch")
         ax2.set_ylabel("Accuracy")
         st.pyplot(fig2)
+        
+        # Test Accuracy Curve
+        st.subheader("📈 Test Accuracy Curve")
+        fig3, ax3 = plt.subplots()
+        ax3.plot(history["test_acc"])
+        ax3.set_xlabel("Epoch")
+        ax3.set_ylabel("Test Accuracy")
+        st.pyplot(fig3)
+
+
 
         # Confusion Matrix
-        y_pred = nn.predict(X_test_std)
-        cm_matrix = pd.crosstab(y_test, y_pred, rownames=["Actual"], colnames=["Predicted"])
+        cm_matrix = pd.crosstab(y_test, test_pred, rownames=["Actual"], colnames=["Predicted"])
         st.subheader(" Confusion Matrix")
         st.dataframe(cm_matrix)
 
-        acc = np.mean(y_pred == y_test) * 100
-        st.success(f"Overall Accuracy: {acc:.2f}%")
+        # Show Final Accuracy 
+        st.subheader("📊 Final Accuracy Results")
+        st.write(f"**Training Accuracy:** {train_acc:.2f}%")
+        st.write(f"**Testing Accuracy:** {test_acc:.2f}%")
+
 
     # --------------------------
     # Predict Single Sample
