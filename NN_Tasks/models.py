@@ -109,9 +109,13 @@ class CustomNN:
     # --------------------------
     # Training
     # --------------------------
-    def train(self, X_train, y_train, epochs=100, on_epoch=None):
+    # --------------------------
+    # Training
+    # --------------------------
+    def train(self, X_train, y_train, X_test=None, y_test=None, epochs=100, on_epoch=None):
 
-        losses, accs = [], []
+        losses, train_accs = [], []
+        test_accs = []  # <--- NEW
 
         for epoch in range(epochs):
 
@@ -122,13 +126,21 @@ class CustomNN:
             # Cross-entropy loss
             m = y_train.shape[0]
             log_likelihood = -np.log(y_pred[np.arange(m), y_train] + 1e-9)
-            loss = np.sum(log_likelihood) / m
+            loss = np.mean(log_likelihood)
             losses.append(loss)
 
-            # Accuracy
+            # Train accuracy
             preds = np.argmax(y_pred, axis=1)
             acc = np.mean(preds == y_train)
-            accs.append(acc)
+            train_accs.append(acc)
+
+            # ------------ NEW: Test accuracy per epoch ------------
+            if X_test is not None and y_test is not None:
+                test_pred = self.predict(X_test)
+                test_acc = np.mean(test_pred == y_test)
+                test_accs.append(test_acc)
+            else:
+                test_accs.append(None)
 
             # Backpropagation
             grads_w, grads_b = self._backward(activations, y_train)
@@ -138,11 +150,17 @@ class CustomNN:
                 self.weights[i] -= self.lr * grads_w[i]
                 self.biases[i] -= self.lr * grads_b[i]
 
-            # Callback (optional)
+            # Callback
             if on_epoch:
                 on_epoch(epoch, loss, acc)
 
-        return {"loss": losses, "train_acc": accs}
+        # Return all curves
+        return {
+            "loss": losses,
+            "train_acc": train_accs,
+            "test_acc": test_accs,   
+        }
+
 
     # --------------------------
     # Prediction
