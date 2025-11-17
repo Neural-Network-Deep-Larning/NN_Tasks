@@ -25,13 +25,26 @@ class CustomNN:
         if len(num_neurons) != num_of_layers:
             raise ValueError("num_neurons list length must equal num_of_layers")
 
-        # Select activation
+        # ----------- ACTIVATION FUNCTIONS -----------
+        def sigmoid(x):
+            
+            return np.where(
+                x >= 0,
+                1 / (1 + np.exp(-x)),
+                np.exp(x) / (1 + np.exp(x))
+            )
+
+        def sigmoid_derivative(a):
+            return a * (1 - a)
+
         if activation == 'sigmoid':
-            self.activation = lambda x: 1 / (1 + np.exp(-x))
-            self.activation_derivative = lambda a: a * (1 - a)
+            self.activation = sigmoid
+            self.activation_derivative = sigmoid_derivative
+
         elif activation == 'tanh':
             self.activation = np.tanh
             self.activation_derivative = lambda a: 1 - np.square(a)
+
         else:
             raise ValueError("Choose 'sigmoid' or 'tanh'.")
 
@@ -43,13 +56,13 @@ class CustomNN:
         self.biases = []
 
         for i in range(len(layer_dims) - 1):
-            w = np.random.randn(layer_dims[i], layer_dims[i+1]) * 0.01
+            w = np.random.randn(layer_dims[i], layer_dims[i + 1]) * 0.01
             self.weights.append(w)
 
             if use_bias:
-                self.biases.append(np.zeros((1, layer_dims[i+1])))
+                self.biases.append(np.zeros((1, layer_dims[i + 1])))
             else:
-                self.biases.append(np.zeros((1, layer_dims[i+1])))
+                self.biases.append(np.zeros((1, layer_dims[i + 1])))
 
         self.initialized = True
 
@@ -68,7 +81,7 @@ class CustomNN:
             zs.append(z)
             activations.append(a)
 
-        # Output layer (softmax)
+        # Output (Softmax)
         z_out = activations[-1] @ self.weights[-1] + self.biases[-1]
         exp_scores = np.exp(z_out - np.max(z_out, axis=1, keepdims=True))
         a_out = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
@@ -91,16 +104,16 @@ class CustomNN:
         y_one_hot = np.zeros((m, self.num_classes))
         y_one_hot[np.arange(m), y_true] = 1
 
-        # Output layer gradient (softmax + CE)
+        # Output layer delta
         delta = activations[-1] - y_one_hot
 
-        # Output layer grads
+        # Output weights
         grads_w[-1] = activations[-2].T @ delta / m
         grads_b[-1] = np.sum(delta, axis=0, keepdims=True) / m
 
-        # Hidden layers (backprop)
+        # Hidden layers
         for i in reversed(range(len(self.weights) - 1)):
-            delta = (delta @ self.weights[i+1].T) * self.activation_derivative(activations[i+1])
+            delta = (delta @ self.weights[i + 1].T) * self.activation_derivative(activations[i + 1])
             grads_w[i] = activations[i].T @ delta / m
             grads_b[i] = np.sum(delta, axis=0, keepdims=True) / m
 
@@ -109,32 +122,28 @@ class CustomNN:
     # --------------------------
     # Training
     # --------------------------
-    # --------------------------
-    # Training
-    # --------------------------
     def train(self, X_train, y_train, X_test=None, y_test=None, epochs=100, on_epoch=None):
 
-        losses, train_accs = [], []
-        test_accs = []  # <--- NEW
+        losses, train_accs, test_accs = [], [], []
 
         for epoch in range(epochs):
 
-            # Forward
+            # Forward pass
             activations, zs = self._forward(X_train)
             y_pred = activations[-1]
 
-            # Cross-entropy loss
+            # Cross entropy loss
             m = y_train.shape[0]
             log_likelihood = -np.log(y_pred[np.arange(m), y_train] + 1e-9)
             loss = np.mean(log_likelihood)
             losses.append(loss)
 
-            # Train accuracy
+            # Training accuracy
             preds = np.argmax(y_pred, axis=1)
-            acc = np.mean(preds == y_train)
-            train_accs.append(acc)
+            train_acc = np.mean(preds == y_train)
+            train_accs.append(train_acc)
 
-            # ------------ NEW: Test accuracy per epoch ------------
+            # Test accuracy each epoch
             if X_test is not None and y_test is not None:
                 test_pred = self.predict(X_test)
                 test_acc = np.mean(test_pred == y_test)
@@ -142,25 +151,22 @@ class CustomNN:
             else:
                 test_accs.append(None)
 
-            # Backpropagation
+            # Backprop
             grads_w, grads_b = self._backward(activations, y_train)
 
-            # Gradient update
+            # Update
             for i in range(len(self.weights)):
                 self.weights[i] -= self.lr * grads_w[i]
                 self.biases[i] -= self.lr * grads_b[i]
 
-            # Callback
             if on_epoch:
-                on_epoch(epoch, loss, acc)
+                on_epoch(epoch, loss, train_acc)
 
-        # Return all curves
         return {
             "loss": losses,
             "train_acc": train_accs,
-            "test_acc": test_accs,   
+            "test_acc": test_accs,
         }
-
 
     # --------------------------
     # Prediction
